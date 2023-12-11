@@ -44,9 +44,9 @@ def progress_bar(current, total):
     pct = float(str(pct).strip('%'))
     p = min(max(pct, 0), 100)
     cFull = int(p // 8)
-    p_str = '■' * cFull
-    p_str += '□' * (12 - cFull)
-    return f"[{p_str}] {pct}%"
+    p_str = '●' * cFull
+    p_str += '○' * (12 - cFull)
+    return f"[{p_str}] {round(pct, 2)}%"
 
 async def check_bots():
     start_time = time()
@@ -86,10 +86,9 @@ async def check_bots():
             if sent_msg.id == history.messages[0].id:
                 bot_stats[bot] = {"response_time": None, "status": "❌", "host": host or "Unknown"}
             else:
-                #time_after_sending = time()
                 resp_time = history.messages[0].date.timestamp() - pre_time
                 avl_bots += 1
-                bot_stats[bot] = {"response_time": f"`{round(resp_time * 1000, 3)}ms`", "status": "✅", "host": host or "Unknown"}
+                bot_stats[bot] = {"response_time": f"`{round(resp_time * 1000, 2)}ms`", "status": "✅", "host": host or "Unknown"}
         except BaseException:
             bot_stats[bot] = {"response_time": None, "status": "❌", "host": host or "Unknown"}
         
@@ -100,7 +99,7 @@ async def check_bots():
         await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""**Status Update Stats:**
 ┌ **Bots Verified :** {bot_no} out of {len(BOTS)}
 ├ **Progress :** {progress_bar(bot_no, len(BOTS))}
-└ **Time Elasped :** {time() - pre_time}s""")
+└ **Time Elasped :** {round(time() - pre_time, 2)}s""")
 
     end_time = time()
     log.info("[CHECK] Completed periodic checks.")
@@ -122,7 +121,7 @@ async def check_bots():
 """
 
     total_time = end_time - start_time
-    status_message += f"• **Last Periodic Checked in {total_time}s**"
+    status_message += f"• **Last Periodic Checked in {round(total_time, 2)}s**\n\n"
     
     current_time = datetime.now(utc).astimezone(timezone(TIME_ZONE))
     status_message += f"""• **Last Check Details :**
