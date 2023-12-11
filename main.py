@@ -59,9 +59,7 @@ async def check_bots():
 
 """
     try:
-        await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""
-
-**Status Update Stats:**
+        await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""**Status Update Stats:**
 ┌ **Bots Verified :** 0 out of {len(BOTS)}
 ├ **Progress :** [○○○○○○○○○○] 0%
 └ **Time Elasped :** 0s""")
@@ -99,7 +97,7 @@ async def check_bots():
         await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""**Status Update Stats:**
 ┌ **Bots Verified :** {bot_no} out of {len(BOTS)}
 ├ **Progress :** {progress_bar(bot_no, len(BOTS))}
-└ **Time Elasped :** {round(time() - pre_time, 2)}s""")
+└ **Time Elasped :** {round(time() - start_time, 2)}s""")
 
     end_time = time()
     log.info("[CHECK] Completed periodic checks.")
