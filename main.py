@@ -3,6 +3,7 @@ from asyncio import sleep
 from logging import basicConfig, INFO, getLogger
 from time import time
 from datetime import datetime
+from itertools import zip_longest
 
 from pytz import utc, timezone
 from decouple import config
@@ -70,7 +71,9 @@ async def check_bots():
         return
 
     bot_no, avl_bots = 0, 0
-    for bot, host in zip(BOTS, HOSTS):
+    for bot, host in zip_longest(BOTS, HOSTS):
+        if bot is None:
+            break
         pre_time = time()
         try:
             sent_msg = await client.send_message(bot, "/start")
@@ -81,14 +84,14 @@ async def check_bots():
                 )
             )
             if sent_msg.id == history.messages[0].id:
-                bot_stats[bot] = {"response_time": None, "status": "❌", "host": host}
+                bot_stats[bot] = {"response_time": None, "status": "❌", "host": host or "Unknown"}
             else:
                 #time_after_sending = time()
                 resp_time = history.messages[0].date.timestamp() - pre_time
                 avl_bots += 1
-                bot_stats[bot] = {"response_time": f"`{round(resp_time * 1000, 3)}ms`", "status": "✅", "host": host}
+                bot_stats[bot] = {"response_time": f"`{round(resp_time * 1000, 3)}ms`", "status": "✅", "host": host or "Unknown"}
         except BaseException:
-            bot_stats[bot] = {"response_time": None, "status": "❌", "host": host}
+            bot_stats[bot] = {"response_time": None, "status": "❌", "host": host or "Unknown"}
         
         await client.send_read_acknowledge(bot)
         log.info(f"[CHECK] Checked @{bot} - {bot_stats[bot]['status']}.")
