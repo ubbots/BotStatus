@@ -1,28 +1,23 @@
-# (c) @xditya
-# This file is a part of https://github.com/xditya/BotStatus
+#!/usr/bin/env python3
+from asyncio import sleep
+from logging import basicConfig, INFO, getLogger
+from time import time
+from datetime import datetime
 
-import asyncio
-import logging
-import time
-import datetime
-
-import pytz
+from pytz import utc, timezone
 from decouple import config
 from telethon import TelegramClient, functions
 from telethon.sessions import StringSession
 
-# initializing logger
-logging.basicConfig(
-    level=logging.INFO, format="[%(levelname)s] %(asctime)s - %(message)s"
-)
-log = logging.getLogger("BotStatus")
+basicConfig(level=INFO, format="[%(levelname)s] %(asctime)s - %(message)s")
+log = getLogger("BotStatus")
 
-# fetching variales from env
 try:
     APP_ID = config("APP_ID", cast=int)
     API_HASH = config("API_HASH")
     SESSION = config("SESSION")
     LIST_BOTS = config("BOTS")
+    LIST_HOSTS = config("HOSTS")
     CHANNEL_ID = config("CHANNEL_ID", cast=int)
     MESSAGE_ID = config("MESSAGE_ID", cast=int)
     CHANNEL_NAME = config("CHANNEL_NAME", default="@cloud_station9")
@@ -32,8 +27,9 @@ except BaseException as ex:
     exit(1)
 
 BOTS = LIST_BOTS.split()
+HOSTS = LIST_HOSTS.split()
 
-log.info("Connecting bot.")
+log.info("Connecting BotClient")
 try:
     client = TelegramClient(
         StringSession(SESSION), api_id=APP_ID, api_hash=API_HASH
@@ -42,104 +38,97 @@ except BaseException as e:
     log.warning(e)
     exit(1)
 
+def progress_bar(current, total):
+    pct = current/total * 100
+    pct = float(str(pct).strip('%'))
+    p = min(max(pct, 0), 100)
+    cFull = int(p // 8)
+    p_str = '■' * cFull
+    p_str += '□' * (12 - cFull)
+    return f"[{p_str}] {pct}%"
 
-# perform checks
 async def check_bots():
-    start_time = time.time()
+    start_time = time()
     bot_stats = {}
-    log.info("[CHECK] Started periodic checks...")
-    channel_current_msg = await client.get_messages(CHANNEL_ID, ids=MESSAGE_ID)
-    new_message = (
-        "⚠️ **New periodic check in progress...** ⚠️\n\n" + channel_current_msg.text
-    )
+    log.info("[CHECK] Started Periodic Bot Status checks...")
+    header_msg = "__**Cloud Station Bot Status :**__\n\n"
+    status_message = header_msg + """• **Avaliable Bots :** __Checking...__
+
+• `Currently Ongoing Periodic Check`
+
+"""
     try:
-        await client.edit_message(CHANNEL_ID, MESSAGE_ID, new_message)
+        await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""
+
+**Status Update Stats:**
+┌ **Bots Verified :** 0 out of {len(BOTS)}
+├ **Progress :** [○○○○○○○○○○] 0%
+└ **Time Elasped :** 0s""")
     except BaseException as e:
         log.warning("[EDIT] Unable to edit message in the channel!")
         log.error(e)
+        return
 
-    for bot in BOTS:
-        time_before_sending = time.time()
+    bot_no, avl_bots = 0, 0
+    for bot, host in zip(BOTS, HOSTS):
+        pre_time = time()
         try:
-            # send a msg to the bot
             sent_msg = await client.send_message(bot, "/start")
-            await asyncio.sleep(10)
+            await sleep(10)
             history = await client(
                 functions.messages.GetHistoryRequest(
-                    peer=bot,
-                    offset_id=0,
-                    offset_date=None,
-                    add_offset=0,
-                    limit=1,
-                    max_id=0,
-                    min_id=0,
-                    hash=0,
+                    peer=bot, offset_id=0, offset_date=None, add_offset=0, limit=1, max_id=0, min_id=0, hash=0,
                 )
             )
             if sent_msg.id == history.messages[0].id:
-                # save stats in a dict
-                bot_stats[bot] = {
-                    "response_time": None,
-                    "status": "❌",
-                }
+                bot_stats[bot] = {"response_time": None, "status": "❌", "host": host}
             else:
-                time_after_sending = time.time()
-                time_taken_for_response = time_after_sending - time_before_sending
-
-                # save stats in a dict.
-                bot_stats[bot] = {
-                    "response_time": f"`{round(time_taken_for_response * 1000, 3)}ms`",  # convert to ms for readability
-                    "status": "✅",
-                }
+                #time_after_sending = time()
+                resp_time = history.messages[0].date.timestamp() - pre_time
+                avl_bots += 1
+                bot_stats[bot] = {"response_time": f"`{round(resp_time * 1000, 3)}ms`", "status": "✅", "host": host}
         except BaseException:
-            bot_stats[bot] = {
-                "response_time": "",
-                "status": "❌",
-            }
+            bot_stats[bot] = {"response_time": None, "status": "❌", "host": host}
+        
         await client.send_read_acknowledge(bot)
         log.info(f"[CHECK] Checked @{bot} - {bot_stats[bot]['status']}.")
+        bot_no += 1
+        
+        await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message + f"""**Status Update Stats:**
+┌ **Bots Verified :** {bot_no} out of {len(BOTS)}
+├ **Progress :** {progress_bar(bot_no, len(BOTS))}
+└ **Time Elasped :** {time() - pre_time}s""")
 
-    end_time = time.time()
-    total_time_taken = end_time - start_time
+    end_time = time()
     log.info("[CHECK] Completed periodic checks.")
 
-    # form the message
-    status_message = f"**{CHANNEL_NAME}** - __Bot Status__\n\n"
+    status_message = header_msg + f"• **Avaliable Bots :** {avl_bots} out of {len(BOTS)}\n\n"
     for bot, value in bot_stats.items():
-        status_message += (
-            f"» {value['status']} @{bot}\n"
-            if bot_stats[bot]["response_time"] is None
-            else f"» {bot_stats[bot]['status']} @{bot} [ {bot_stats[bot]['response_time']} ]\n"
-        )
+        if bot_stats[bot]["response_time"] is None:
+            status_message += f"""┌ **Bot :** @{bot}
+├ **Status :** {bot_stats[bot]['status']}
+└ **Host :** {bot_stats[bot]['host']}
+            
+"""
+        else:
+            status_message += f"""┌ **Bot :** @{bot}
+├ **Ping :** {bot_stats[bot]['response_time']}
+├ **Status :** {bot_stats[bot]['status']}
+└ **Host :** {bot_stats[bot]['host']}
+            
+"""
 
-    # add time taken to check
-    hours = int(total_time_taken // 3600)
-    minutes = int((total_time_taken % 3600) // 60)
-    seconds = int(total_time_taken % 60)
-    status_message += f"\n**Checked in** `"
-    time_added = False
-    if hours > 0:
-        time_added = True
-        status_message += f"{hours}h "
-    if minutes > 0:
-        time_added = True
-        status_message += f"{minutes}m "
-    if seconds > 0:
-        time_added = True
-        status_message += f"{seconds}s "
-    if not time_added:
-        status_message += f"{round(total_time_taken * 1000)}ms"
-    status_message += "`\n"
+    total_time = end_time - start_time
+    status_message += f"• **Last Periodic Checked in {total_time}s**"
+    
+    current_time = datetime.now(utc).astimezone(timezone(TIME_ZONE))
+    status_message += f"""• **Last Check Details :**
+┌ **Time :** `{current_time.strftime('%H:%M:%S')} hrs`
+├ **Date :** `{current_time.strftime('%d %B %Y')}`
+└ **Time Zone :** `{TIME_ZONE} (UTC {current_time.strftime('%z')})`
 
-    # add last checked time
-    current_time_utc = datetime.datetime.now(pytz.utc)
-    current_time = current_time_utc.astimezone(pytz.timezone(TIME_ZONE))
-    status_message += f"**Last checked at** `{current_time.strftime('%H:%M:%S - %d %B %Y')}` [ __{TIME_ZONE}__ ]"
+__○ Auto Status Update in 15 mins Interval__"""
 
-    # add auto check message
-    status_message += f"\n\n**This message will be updated every 2 hours.**"
-
-    # edit the message in the channel
     try:
         await client.edit_message(CHANNEL_ID, MESSAGE_ID, status_message)
     except BaseException as e:

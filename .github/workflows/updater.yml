@@ -1,15 +1,15 @@
-name: ⚡️ Update Status. ⚡️
+name: ⚡️ Update Bots Status ⚡️
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - name: 🐍 Set up Python 3.9 🐍
+      - name: 🐍 Set Up Python 3.9 🐍
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
@@ -19,15 +19,16 @@ jobs:
           repository: ${{ secrets.REPO_NAME }}
       - name: 📀 Install dependencies. 📀
         run: |
-          pip install python-decouple pytz telethon
+          pip install python-decouple pytz telethon cryptg
           pip install --upgrade pip
-      - name: 🏃‍♂️ Run the UserClient. 🏃‍♂️
+      - name: 🏃‍♂️ Run the UserClient 🏃‍♂️
         run: |
           python3 main.py
         env:
           APP_ID: ${{ secrets.APP_ID }}
           API_HASH: ${{ secrets.API_HASH }}
           BOTS: ${{ secrets.BOTS }}
+          HOSTS: ${{ secrets.HOSTS }}
           SESSION: ${{ secrets.SESSION }}
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
           MESSAGE_ID: ${{ secrets.MESSAGE_ID }}
